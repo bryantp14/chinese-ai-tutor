@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Layout } from "@/components/Layout";
 import { ChatMessage } from "@/components/ChatMessage";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { SendHorizontal, Mic, Sparkles } from "lucide-react";
 import { useChat } from "@/hooks/use-chat";
 import { useToast } from "@/hooks/use-toast";
@@ -111,6 +111,20 @@ export default function Home() {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Send on Enter, allow new line with Shift+Enter
+    if (e.key === "Enter") {
+      if (e.shiftKey) {
+        // Allow default: insert new line
+        return;
+      } else {
+        // Send message
+        e.preventDefault();
+        handleSendMessage();
+      }
+    }
+  };
+
   const loadChat = (id: string) => {
     try {
       const data = JSON.parse(localStorage.getItem(`chat_${id}`) || "{}");
@@ -199,17 +213,19 @@ export default function Home() {
       <div className="p-4 lg:p-6 bg-white border-t border-stone-100">
         <form 
           onSubmit={handleSendMessage}
-          className="mx-auto max-w-3xl relative flex items-center gap-3"
+          className="mx-auto max-w-3xl relative flex items-end gap-3"
         >
           <div className="relative flex-1">
-            <Input
+            <Textarea
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
+              onKeyDown={handleKeyDown}
               placeholder="Type your message in English or Chinese..."
-              className="w-full pl-4 pr-12 py-6 rounded-2xl border-stone-200 bg-stone-50 focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/5 shadow-inner transition-all text-base"
+              className="w-full pl-4 pr-12 py-4 rounded-2xl border-stone-200 bg-stone-50 focus:bg-white focus:border-primary/50 focus:ring-4 focus:ring-primary/5 shadow-inner transition-all text-base resize-none min-h-[52px] max-h-[200px]"
               disabled={chatMutation.isPending}
+              rows={1}
             />
-            <div className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-primary cursor-pointer transition-colors">
+            <div className="absolute right-3 top-3 text-stone-400 hover:text-primary cursor-pointer transition-colors">
                <Mic className="h-5 w-5" />
             </div>
           </div>
@@ -218,6 +234,7 @@ export default function Home() {
             type="submit" 
             disabled={!inputValue.trim() || chatMutation.isPending}
             className="h-[52px] w-[52px] rounded-2xl bg-primary text-white shadow-lg shadow-primary/25 hover:shadow-xl hover:shadow-primary/30 hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:shadow-none transition-all flex items-center justify-center shrink-0"
+            data-testid="button-send-message"
           >
             <SendHorizontal className="h-6 w-6 ml-0.5" />
           </Button>
