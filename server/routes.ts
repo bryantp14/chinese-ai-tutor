@@ -5,6 +5,7 @@ import { api } from "@shared/routes";
 import { z } from "zod";
 import OpenAI from "openai";
 import { lessonData } from "./lessonData";
+import { sheetsLogger } from "./googleSheetsLogger";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 
@@ -26,8 +27,14 @@ export async function registerRoutes(
     try {
       const { message, unitId, history } = api.chat.sendMessage.input.parse(req.body);
 
-      // Log user message
+      // Log user message to database and Google Sheets
       await storage.logChat({
+        role: "user",
+        content: message,
+        unitId: unitId
+      });
+      await sheetsLogger.logToSheet({
+        timestamp: new Date().toISOString(),
         role: "user",
         content: message,
         unitId: unitId
@@ -59,8 +66,14 @@ export async function registerRoutes(
 
       const aiContent = response.choices[0].message.content || "Sorry, I couldn't understand that.";
 
-      // Log AI response
+      // Log AI response to database and Google Sheets
       await storage.logChat({
+        role: "assistant",
+        content: aiContent,
+        unitId: unitId
+      });
+      await sheetsLogger.logToSheet({
+        timestamp: new Date().toISOString(),
         role: "assistant",
         content: aiContent,
         unitId: unitId
