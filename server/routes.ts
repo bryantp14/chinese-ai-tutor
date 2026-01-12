@@ -1,18 +1,22 @@
-import { appendToSheet } from "./sheets"; // ✅ Using the file we created
+import { appendToSheet } from "./sheets"; 
 import type { Express } from "express";
 import { createServer, type Server } from "http";
-// import { storage } from "./storage"; // ❌ Commented out to prevent DB crash
 import { api } from "@shared/routes";
 import { z } from "zod";
 import OpenAI from "openai";
-import { lessonData } from "./lessonData";
+// NEW IMPORTS: Link to your new data engine and prompt file
+import { getLessonContext } from "./data"; 
+import { systemInstruction } from "./systemInstruction";
 import { registerChatRoutes } from "./replit_integrations/chat";
 import { registerImageRoutes } from "./replit_integrations/image";
 
-// Initialize OpenAI - Updated to look for YOUR key first
+// Initialize OpenAI with OpenRouter config
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY || process.env.AI_INTEGRATIONS_OPENAI_API_KEY || "dummy-key",
-  baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL || "https://api.openai.com/v1",
+  apiKey: process.env.OPENROUTER_API_KEY, 
+  baseURL: "https://openrouter.ai/api/v1",
+  defaultHeaders: {
+    "X-Title": "My Chinese Tutor App",
+  },
 });
 
 export async function registerRoutes(
@@ -27,41 +31,60 @@ export async function registerRoutes(
     try {
       const { message, unitId, history } = api.chat.sendMessage.input.parse(req.body);
 
-      // --- DELETED: The "Log user message" block that was crashing the DB ---
+      // --- STEP 1: Get Dynamic Lesson Data ---
+      // We now fetch specific vocab/grammar based on the unitId (e.g., "unit-3")
+      const lessonContext = getLessonContext(unitId || "unit-1");
 
-      // Get context from lesson data
-      const context = lessonData[unitId] || "General Chinese practice.";
+      // --- STEP 2: Construct the System Prompt ---
+      // We combine the strict JSON rules (from systemInstruction.ts)
+      // with the dynamic content for the current lesson.
+      const systemMessageContent = `
+      ${JSON.stringify(systemInstruction, null, 2)}
 
-      // Construct messages for OpenAI
-      // Filter history to last 10 messages to keep context relevant but concise
+      *** CURRENT LESSON CONTEXT ***
+      You are strictly limited to the following vocabulary and grammar:
+      
+      TOPIC: ${lessonContext.topic}
+      
+      ALLOWED VOCABULARY:
+      ${lessonContext.vocabList}
+      
+      ALLOWED GRAMMAR POINTS:
+      ${lessonContext.grammarList}
+
+      ALLOWED SENTENCE PATTERNS:
+      ${lessonContext.patterns || "None specified"}
+      `;
+
+      // Prepare conversation history
       const recentHistory = (history || []).slice(-10).map(msg => ({
-        role: msg.role,
+        role: msg.role as "user" | "assistant", 
         content: msg.content
       }));
 
-      const systemPrompt = `You are an AI Chinese Tutor for elementary students. You must ONLY use vocabulary and grammar structures found in the provided context. You are helpful and patient. Do not do the student's homework; offer hints instead. If a student makes a mistake, gently label it and guide them to correct it. Context: ${context}`;
-
       const messages = [
-        { role: "system" as const, content: systemPrompt },
+        { role: "system" as const, content: systemMessageContent },
         ...recentHistory,
         { role: "user" as const, content: message }
       ];
 
       // Call OpenAI
       const response = await openai.chat.completions.create({
-        model: "gpt-4o", 
+        model: "openai/gpt-4o", 
         messages: messages,
+        // Use the temperature defined in your JSON rules
+        temperature: systemInstruction.generation.temperature, 
       });
 
       const aiContent = response.choices[0].message.content || "Sorry, I couldn't understand that.";
 
-      // --- NEW: Send response to User FIRST (Speed) ---
+      // Send response to User
       res.json({
         message: aiContent,
         role: "assistant"
       });
 
-      // --- NEW: Log to Google Sheets in background (User + AI in one row) ---
+      // Log to Google Sheets
       await appendToSheet({
         unit: unitId,
         userMessage: message,
@@ -70,7 +93,6 @@ export async function registerRoutes(
       
     } catch (err) {
       console.error("Chat error:", err);
-      // Only send error response if we haven't sent the success response yet
       if (!res.headersSent) {
         if (err instanceof z.ZodError) {
           res.status(400).json({

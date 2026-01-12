@@ -22,7 +22,8 @@ interface SavedChat {
 }
 
 export default function Home() {
-  const [currentUnit, setCurrentUnit] = useState("Unit 1: Greetings");
+  // ✅ CHANGED: Default to the new Lesson 1 name
+  const [currentUnit, setCurrentUnit] = useState("Lesson 1: Greetings");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [chatId, setChatId] = useState<string>(() => uuidv4());
@@ -176,7 +177,13 @@ export default function Home() {
                 </p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-lg mt-8">
-                {["Explain 'Le' particle", "How do I say 'Coffee'?", "Quiz me on colors", "Practice ordering food"].map((suggestion) => (
+                {/* ✅ CHANGED: New suggestions based on Lesson 1-3 */}
+                {[
+                  "How do I introduce myself?", 
+                  "Quiz me on family members", 
+                  "How do I ask someone's age?", 
+                  "Practice dates and times"
+                ].map((suggestion) => (
                   <button
                     key={suggestion}
                     onClick={() => {

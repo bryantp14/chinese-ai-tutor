@@ -23,12 +23,11 @@ interface LayoutProps {
   onNewChat: () => void;
 }
 
+// ✅ 关键修改：这里的 ID 必须和 server/lessonData.ts 里的 Key 完全一致（包括空格和标点）
 const UNITS = [
-  { id: "unit-1", label: "Unit 1: Greetings", sub: "Basic introductions" },
-  { id: "unit-2", label: "Practice: Ordering Food", sub: "Restaurant scenarios" },
-  { id: "unit-3", label: "Homework: Family", sub: "Describing relatives" },
-  { id: "unit-4", label: "Vocab: Colors & Numbers", sub: "Essential basics" },
-  { id: "unit-5", label: "Grammar: Using 'Le'", sub: "Past tense particles" },
+  { id: "Lesson 1: Greetings", label: "Lesson 1: Greetings", sub: "Basic introductions" },
+  { id: "Lesson 2: Family", label: "Lesson 2: Family", sub: "Describing relatives" },
+  { id: "Lesson 3: Dates & Time", label: "Lesson 3: Dates & Time", sub: "Time, dates, invitations" },
 ];
 
 export function Layout({ 
@@ -41,6 +40,9 @@ export function Layout({
 }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+
+  // 辅助函数：即使 currentUnit 是 ID，也能获取显示的 label
+  const activeUnitLabel = UNITS.find(u => u.id === currentUnit)?.label || currentUnit;
 
   useEffect(() => {
     const checkMobile = () => {
@@ -55,7 +57,7 @@ export function Layout({
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-background">
-      {/* Mobile Overlay */}
+      {/* 移动端遮罩 */}
       <AnimatePresence>
         {isMobile && isSidebarOpen && (
           <motion.div
@@ -68,7 +70,7 @@ export function Layout({
         )}
       </AnimatePresence>
 
-      {/* Sidebar */}
+      {/* 侧边栏 */}
       <AnimatePresence mode="wait">
         {isSidebarOpen && (
           <motion.aside
@@ -80,7 +82,7 @@ export function Layout({
               "fixed lg:static z-50 flex h-full w-80 flex-col border-r border-stone-200 bg-white/80 backdrop-blur-xl shadow-xl lg:shadow-none",
             )}
           >
-            {/* Sidebar Header */}
+            {/* 侧边栏头部 */}
             <div className="flex h-16 items-center justify-between px-6 border-b border-stone-100">
               <div className="flex items-center gap-3">
                 <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground shadow-lg shadow-primary/20">
@@ -97,9 +99,9 @@ export function Layout({
               )}
             </div>
 
-            {/* Sidebar Content */}
+            {/* 侧边栏内容 */}
             <div className="flex-1 overflow-y-auto py-6 px-4 space-y-8">
-              {/* Actions */}
+              {/* 操作按钮 */}
               <div>
                 <Button 
                   onClick={() => {
@@ -113,29 +115,32 @@ export function Layout({
                 </Button>
               </div>
 
-              {/* Units Section */}
+              {/* 课程单元部分 */}
               <div className="space-y-3">
                 <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-stone-400">
                   Learning Context
                 </h3>
                 <div className="space-y-1">
+
                   {UNITS.map((unit) => (
                     <button
                       key={unit.id}
                       onClick={() => {
-                        onUnitChange(unit.label);
+                        // ✅ 发送完整的 ID (例如 "Lesson 1: Greetings") 给后端
+                        onUnitChange(unit.id); 
                         if (isMobile) setIsSidebarOpen(false);
                       }}
                       className={cn(
                         "group w-full flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-xl text-left transition-all duration-200",
-                        currentUnit === unit.label
+                        // ✅ 检查当前选中的 ID 是否匹配
+                        currentUnit === unit.id
                           ? "bg-stone-100 text-stone-900 ring-1 ring-stone-200/50 shadow-sm"
                           : "text-stone-500 hover:bg-stone-50 hover:text-stone-900"
                       )}
                     >
                       <div className="flex w-full items-center justify-between">
                         <span className="text-sm font-semibold">{unit.label}</span>
-                        {currentUnit === unit.label && (
+                        {currentUnit === unit.id && (
                           <ChevronRight className="h-4 w-4 text-primary" />
                         )}
                       </div>
@@ -147,7 +152,7 @@ export function Layout({
                 </div>
               </div>
 
-              {/* Previous Chats Section */}
+              {/* 历史记录部分 */}
               <div className="space-y-3">
                 <h3 className="px-2 text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-2">
                   <History className="h-3 w-3" />
@@ -177,7 +182,7 @@ export function Layout({
               </div>
             </div>
             
-            {/* Sidebar Footer */}
+            {/* 侧边栏底部 */}
             <div className="border-t border-stone-100 p-4">
               <div className="rounded-xl bg-primary/5 p-4 border border-primary/10">
                 <p className="text-xs text-primary/80 leading-relaxed font-medium">
@@ -192,7 +197,7 @@ export function Layout({
         )}
       </AnimatePresence>
 
-      {/* Main Content */}
+      {/* 主内容区域 */}
       <main className="flex-1 flex flex-col h-full relative z-0">
         <header className="h-16 flex items-center px-4 lg:px-8 border-b border-stone-100 bg-white/50 backdrop-blur-sm sticky top-0 z-30">
           {!isSidebarOpen && (
@@ -208,7 +213,7 @@ export function Layout({
           <div className="flex-1 flex items-center justify-center">
              <div className="bg-stone-100/50 px-4 py-1.5 rounded-full border border-stone-200/50">
                <span className="text-xs font-medium text-stone-500 uppercase tracking-wider">
-                 Current Context: <span className="text-stone-900 ml-1">{currentUnit}</span>
+                 Current Context: <span className="text-stone-900 ml-1">{activeUnitLabel}</span>
                </span>
              </div>
           </div>
